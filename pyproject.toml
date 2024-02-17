@@ -62,7 +62,7 @@ pre-commit = "^3.3.3"
 [tool.ruff]
 target-version = "py310"
 src = ["trainer", "app"]
-exclude = ["venv", "docs"]
+exclude = ["venv", ".venv", "docs"]
 line-length = 120
 
 [tool.ruff.lint]
@@ -85,13 +85,14 @@ ignore_missing_imports = true
 follow_imports = "skip"
 disallow_untyped_defs = true
 disable_error_code = ["override", "attr-defined", "import", "empty-body"]
-exclude = ["venv/", "docs/"]
+exclude = ["venv/", ".venv/", "docs/"]
 
 [tool.bandit]
 exclude_dirs = [
     "**/*_test.py",
     "**/test.py",
     "./venv/",
+    "./.venv/",
     "./*cache*/",
     "./resources/",
     "./notebooks/",
