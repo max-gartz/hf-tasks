@@ -18,7 +18,7 @@ if SAGEMAKER_ENDPOINT and SAGEMAKER_REGION:
         response = runtime.invoke_endpoint(
             EndpointName=SAGEMAKER_ENDPOINT,
             ContentType="application/json",
-            Body=json.dumps(dict(inputs=tweet))
+            Body=json.dumps(dict(inputs=tweet, parameters=dict(return_all_scores=True)))
         )
         preds = json.loads(response["Body"].read().decode("utf-8"))
         return {pred["label"]: pred["score"] for pred in preds[0]}
