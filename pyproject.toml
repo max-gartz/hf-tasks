@@ -21,17 +21,20 @@ python = ">=3.10.0,<3.11"
 pip = "^23.0.0"
 
 
+########################
+# frontend dependencies #
+########################
+
 [tool.poetry.group.frontend]
 optional = true
 
 [tool.poetry.group.frontend.dependencies]
 gradio = "^4.19.0"
-
+boto3 = "^1.34.42"
 
 ########################
 # training dependencies #
 ########################
-boto3 = "^1.34.42"
 
 [tool.poetry.group.training]
 optional = true
