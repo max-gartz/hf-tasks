@@ -15,18 +15,33 @@ the deployment and infrastructure should be documented.
 ### Solution Approach
 For the sake of simplicity I am choosing text classification which has a wide range of real world 
 application, especially on social media in the context of content moderation and sentiment analysis.
-I will be using the `bert-base-uncased` model from Hugging Face and finetune it on the `tweet_eval` dataset.
+I will be using the `distilbert-base-uncased` model from Hugging Face and finetune it on the `tweet_eval` dataset.
 The application will then be a simple gradio app that takes a text input (corresponding to a tweet)
 and classifies the tweet into a set of emotions (anger, sadness, joy and optimism). 
 In real life, with access to the twitter/X API, this could for example be used to classify sentiment 
 for a particular stock or product and inform investment decisions.
 
 ### Infrastructure
-I will be using AWS for this task. After running a training job on sagemaker, 
-the model will be deployed on sagemaker endpoints and the app will be hosted on ECS Fargate. 
-The infrastructure will be defined in Terraform and the deployment will be automated using GitHub Actions. 
-Docker images for training and deployment will be built using GitHub Actions and pushed to ECR.
-Authentication with AWS will be done using Identity Federation.
+I used AWS for this task. I created a simple gradio app deployed on an ECS Fargate cluster.
+The app invokes the text classification model endpoint hosted on a SageMaker endpoint.
+The app is secured with AWS Cognito and a load balancer in front of the ECS frontend service.
+
+I set up Identity federation to authenticate with AWS from the CI pipeline (`.github/workflows/ci.yaml`), 
+which, next to some basic code quality control, builds a docker image for the app defined in `./frontend`.
+
+The infrastructure is defined with terraform in the `./terraform` directory.
+It is split into 3 configurations:
+- `./terraform/backend` - which sets up the s3 bucket for the remote terraform state (saving its own state locally)
+- `./terraform/base` - which sets up some basic infrastructure like vpc, s3 buckets and ecr repositories.
+- `./terraform/deployments` - which deploys the ECS Fargate cluster, the app, the SageMaker endpoint as well as a load balancer and cognito.
+
+The reasoning for this is that this provides a simple way of deploying the infrastructure in stages.
+The deployments configuration can only be deployed after the base configuration has been deployed
+and the respective images are built and pushed to the ECR repositories.
+
+As a side note, I used Philipp Schmid's [terraform module](https://registry.terraform.io/modules/philschmid/sagemaker-huggingface/aws/latest)
+to deploy the SageMaker endpoint. I had to do some modification though to allow for newer versions and therefore
+copied the module code into the `./terraform/deployments/modules/huggingface_sagemaker` directory.
 
 ---
 
@@ -42,11 +57,18 @@ to external storage (e.g., s3) instead of just writing them locally during train
 One of the possible ways of dealing with this situation is to use the built-in push to hub callback.
 This allows to easily synchronize the model checkpoints to the Hugging Face Hub and pick training back up from there.
 Alternatively, if we want to stick to external storage like s3, gcs or azure blob storage, we can use the 
-`Trainer`'s `callbacks` argument to add a `RemoteStorageCallback` callback that syncs the model 
-to the external storage on every save event, as determined by the trainer arguments.
+`Trainer`'s `callbacks` argument to add a custom `RemoteStorageCallback` callback that syncs the model 
+to the external storage on every save event, as determined by the trainer arguments. We have to 
+take extra care though, when it comes to resuming training from those checkpoints as the trainer does 
+not natively support reading from remote storage. This means, we will have to make sure the checkpoint 
+is copied to the local storage before resuming training.
 
 ### Details
-Check out the solution to Question 1 for an applied example of that.
+I implemented the custom callback in `./training/trainer/callbacks.py` and added it to 
+the `Trainer` in `./training/trainer/train.py`. The callback implementation supports any fsspec 
+based file system, which includes s3, gcs and azure blob storage.
+For the sake of simplicity, I decided to only support explicitly provided checkpoints for resuming 
+training in the example training script. This means it does not support auto-detecting the latest checkpoint.
 
 ---
 

@@ -1,0 +1,80 @@
+seed: 42
+hub_token: true
+
+model:
+  name_or_path: distilbert-base-uncased
+  subfolder: ''
+
+tokenizer:
+  name_or_path: distilbert-base-uncased
+  subfolder: ''
+
+train_data:
+  name_or_path: tweet_eval
+  config_name: emotion
+  split: "train+validation"
+  shuffle: true
+
+eval_data:
+  name_or_path: tweet_eval
+  config_name: emotion
+  split: "test"
+  shuffle: false
+
+processing:
+  num_proc: -1
+  batch_size: 100
+  feature: text
+  target: [ label ]
+
+metrics:
+  - name: Accuracy
+    type: accuracy
+  - name: Precision
+    type: precision
+  - name: Recall
+    type: recall
+  - name: F1
+    type: f1
+  - name: AuROC
+    type: auroc
+
+trainer:
+  output_dir: outputs
+  remote_storage:
+    output_dir: s3://590184020311-training-artifacts
+    options: { }
+  early_stopping:
+    patience: 3
+    threshold: 0.001
+  resume_from_checkpoint: s3://590184020311-training-artifacts/checkpoint-100
+  args:
+    evaluation_strategy: steps
+    eval_steps: 100
+    save_strategy: steps
+    save_steps: 100
+    logging_strategy: steps
+    logging_steps: 100
+    max_steps: 1000
+    warmup_ratio: 0
+    per_device_train_batch_size: 4
+    per_device_eval_batch_size: 4
+    dataloader_num_workers: 8
+    learning_rate: 1.0e-5
+    load_best_model_at_end: true
+    metric_for_best_model: Accuracy
+    report_to: [ wandb ]
+    push_to_hub: true
+    hub_strategy: "end"
+    hub_model_id: distilbert-tweet_eval-emotion2
+    hub_private_repo: true
+    hub_always_push: true
+
+model_card:
+  update: true
+  language: null
+  license: null
+  model_name: null
+  finetuned_from: null
+  tasks: null
+  dataset: [tweet_eval]
