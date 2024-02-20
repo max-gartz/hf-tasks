@@ -28,6 +28,11 @@ module "vpc" {
   single_nat_gateway = true
 }
 
+# storage buckets for training artifacts
+resource "aws_s3_bucket" "training_bucket" {
+  bucket        = "${var.account}-training-artifacts"
+  force_destroy = true
+}
 
 # Container Registry Repositories
 resource "aws_ecr_repository" "frontend_ecr" {
