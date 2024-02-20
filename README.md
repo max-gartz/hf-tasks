@@ -101,15 +101,51 @@ and as a bash script on how to test the functionality of the container.
 ### Solution Approach
 The Dockerfile provided is a good starting point, but it has a few issues.
 To be compatible with NVIDIA H100 GPUs we need to choose a base image with a compatible cuda version and
-install an appropriate pytorch versions.
-Finally, we can simply test the container by running it on a machine with an H100 GPU by 
+install an appropriate pytorch version. According to [documentation](https://www.nvidia.com/content/dam/en-zz/Solutions/gtcs22/data-center/h100/PB-11133-001_v01.pdf)
+the H100 supports CUDA 11.8 or higher, so we should use a base image with that version.
+We also need to make sure our pytorch installation is compatible with the chosen CUDA version.
+Finally, we can test the container by running it on a machine with an H100 GPU by 
 running a simple python script that checks cuda availability. 
 
 ### Details
-See the implementation of the used training image for Question 1 and the test.sh script.
-In the defined GitHub workflow that builds the image, I defined the cuda version
-via a build arguments. This can easily be extended to support different cuda versions using 
-a matrix strategy in the GitHub workflow.
+Consider the following adapted parameterized Dockerfile:
+
+```Dockerfile
+# Use an NVIDIA base image with CUDA support
+ARG CUDA_VERSION=12.1.0
+ARG OS_VERSION=ubuntu20.04
+FROM nvcr.io/nvidia/cuda:${CUDA_VERSION}-base-${OS_VERSION}
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install Python and pip
+ARG PYTHON_VERSION=3.10
+RUN apt update && apt upgrade -y
+RUN apt install software-properties-common curl build-essential -y
+RUN add-apt-repository ppa:deadsnakes/ppa -y
+RUN apt install python${PYTHON_VERSION} -y
+RUN ln -sf /usr/bin/python${PYTHON_VERSION} /usr/bin/python3
+RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3
+RUN apt install python${PYTHON_VERSION}-venv python${PYTHON_VERSION}-dev -y
+
+# setup virtual environment
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# upgrade pip
+RUN python3 -m pip install pip==23.3.2
+
+# Install Hugging Face transformers
+ARG TORCH_VERSION=2.2.0
+ARG TRANSFORMERS_VERSION=4.34.0
+RUN python3 -m pip install torch==${TORCH_VERSION}
+RUN python3 -m pip install transformers==${TRANSFORMERS_VERSION}
+
+COPY tesh.sh test.sh
+```
+
+This Dockerfile uses build arguments to allow for easy version changes.
+As an example I provide instructions on how to build and push the image to AWS ECR.
 
 Login to aws ecr:
 ```bash
@@ -121,6 +157,7 @@ Build and push the image:
 docker build -t <account_id>.dkr.ecr.<region>.amazonaws.com/<repository>:<tag> .
 docker push <account_id>.dkr.ecr.<region>.amazonaws.com/<repository>:<tag>
 ```
+This will use the default build arguments, but you can also overwrite them with the `--build-arg` flag.
 
 To test the image, run the following command on a machine with an H100 GPU:
 ```bash
@@ -135,6 +172,7 @@ This makes sure not only that the GPU is accessible form within the container, w
 can be verified with the `nvidia-smi` command, but also that the pytorch installation is 
 compatible with the CUDA version.
 
-
-
-
+A similar approach has been used in `./training/Dockerfile` to build the training image.
+This image is built in the CI pipeline and pushed to AWS ECR as an example.
+The only difference is that the image does not parameterize the torch and transformers versions, 
+which are instead specified in the requirements containing all training dependencies.
