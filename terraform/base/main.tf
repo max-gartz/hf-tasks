@@ -36,11 +36,13 @@ resource "aws_s3_bucket" "training_bucket" {
 
 # Container Registry Repositories
 resource "aws_ecr_repository" "frontend_ecr" {
-  name = "frontend"
+  name         = "frontend"
+  force_delete = true
 }
 
 resource "aws_ecr_repository" "training_ecr" {
-  name = "training"
+  name         = "training"
+  force_delete = true
 }
 
 
